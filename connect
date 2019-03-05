@@ -1,0 +1,60 @@
+import com.ibm.mq.jms.MQQueue;
+import com.ibm.mq.jms.MQQueueConnectionFactory;
+import com.ibm.mq.jms.MQQueueReceiver;
+import com.ibm.mq.jms.MQQueueSession;
+import com.ibm.msg.client.wmq.WMQConstants;
+import com.ibm.msg.client.wmq.compat.jms.internal.JMSC;
+import javax.jms.*;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+ 
+ 
+@Component
+public class ScheduledTasks {
+ 
+    @Scheduled(fixedRate = 1000)
+    public  static void connect() {
+ try {
+        MQQueueConnectionFactory mqQueueConnectionFactory = new MQQueueConnectionFactory();
+        mqQueueConnectionFactory.setHostName("localhost");
+        mqQueueConnectionFactory.setChannel("SYSTEM.ADMIN.SVRCONN");
+        mqQueueConnectionFactory.setPort(1414);
+        mqQueueConnectionFactory.setIntProperty(WMQConstants.WMQ_CONNECTION_MODE, WMQConstants.WMQ_CM_CLIENT);
+        mqQueueConnectionFactory.setQueueManager("MQ_APPLE");
+        mqQueueConnectionFactory.setTransportType(JMSC.MQJMS_TP_CLIENT_MQ_TCPIP);
+        QueueConnection queueConnection = mqQueueConnectionFactory.createQueueConnection();
+        MQQueueSession session = (MQQueueSession) queueConnection.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
+        MQQueue queue = (MQQueue) session.createQueue("queue:///Q1");
+        MQQueueReceiver receiver = (MQQueueReceiver) session.createReceiver(queue);
+        queueConnection.start();
+ 
+     boolean tru = true;
+        while(tru) {
+            Message receivedMessage = receiver.receive(500);
+            if (receivedMessage != null) {
+ 
+                if (receivedMessage instanceof BytesMessage) {
+                    TextMessage textMessage = (TextMessage) receivedMessage;
+                    System.out.println("Received message Byte'"
+                            + textMessage.getText() + "'");
+                } else if (receivedMessage instanceof TextMessage) {
+                    System.out.println("Received message Text: " + ((TextMessage) receivedMessage).getText());
+                }
+ 
+            } else {
+               tru = false;
+               // System.out.println("No message");
+ 
+            }
+ 
+        }
+        receiver.close();
+        session.close();
+        queueConnection.close();
+    } catch (JMSException e) {
+        e.printStackTrace();
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+}
+}
